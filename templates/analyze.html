@@ -20,6 +20,7 @@
       <hr/>
       <h3>Or upload PDF</h3>
       <form id="pdfForm" method="POST" enctype="multipart/form-data" action="/api/upload/">
+        {% csrf_token %}
         <div class="mb-3">
           <input type="file" id="pdfFile" name="flight_plan" accept="application/pdf" class="form-control" />
         </div>

@@ -77,3 +77,8 @@ STATICFILES_DIRS = [
 # Load thresholds file path for services to use (optional override via env)
 THRESHOLDS_FILE = os.environ.get('FPL_THRESHOLD_FILE', str(BASE_DIR / 'config' / 'thresholds.yaml'))
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
