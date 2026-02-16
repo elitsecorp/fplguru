@@ -65,8 +65,11 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
 # Load thresholds file path for services to use (optional override via env)
 THRESHOLDS_FILE = os.environ.get('FPL_THRESHOLD_FILE', str(BASE_DIR / 'config' / 'thresholds.yaml'))
