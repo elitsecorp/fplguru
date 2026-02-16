@@ -22,6 +22,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,3 +74,4 @@ STATICFILES_DIRS = [
 ]
 # Load thresholds file path for services to use (optional override via env)
 THRESHOLDS_FILE = os.environ.get('FPL_THRESHOLD_FILE', str(BASE_DIR / 'config' / 'thresholds.yaml'))
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
