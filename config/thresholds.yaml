@@ -1,0 +1,16 @@
+# Thresholds for FPL Guru (units documented alongside values)
+# Values are deterministic and used verbatim by analyzer functions.
+
+crosswind_limit_kt: 20            # flag if computed crosswind >= 20 kt
+wind_speed_threshold_kt: 30       # sustained wind advisory (kt)
+icing_temp_c: 0                   # icing risk at <= 0 °C
+min_rvr_m: 550                    # low visibility advisory (RVR in meters)
+min_cloud_base_ft: 200            # low cloud base advisory (feet)
+max_flight_level: 450             # maximum supported flight level
+
+data_quality:
+  required_fields:
+    - callsign
+    - time_departure
+    - time_arrival
+  ambiguous_time_tolerance_minutes: 5

@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>FPL Guru - Analysis Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      /* Risk level color classes */
+      .risk-low { background-color: #d4edda !important; color: #155724 !important; }
+      .risk-moderate { background-color: #fff3cd !important; color: #856404 !important; }
+      .risk-high { background-color: #f8d7da !important; color: #721c24 !important; }
+      .risk-unknown { background-color: #e2e3e5 !important; color: #6c757d !important; }
+      /* Apply a subtle left border to the panel body */
+      .panel-risk-border { border-left: 6px solid transparent; padding-left: 0.75rem; }
+      .panel-risk-border.risk-low { border-left-color: #28a745; }
+      .panel-risk-border.risk-moderate { border-left-color: #ffc107; }
+      .panel-risk-border.risk-high { border-left-color: #dc3545; }
+      .panel-risk-border.risk-unknown { border-left-color: #6c757d; }
+      /* Badge style shown next to heading */
+      .risk-badge { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+      .risk-badge.low { background:#28a745; }
+      .risk-badge.moderate { background:#ffc107; }
+      .risk-badge.high { background:#dc3545; }
+      .risk-badge.unknown { background:#6c757d; }
+    </style>
+  </head>
+  <body class="p-3">
+    <div class="container">
+      <h1>Analysis Results</h1>
+      <p>Each panel shows an automated risk analysis for that section. Results are advisory and flag-only.</p>
+
+      <div class="mb-3">
+        <button id="backBtn" class="btn btn-secondary">Back</button>
+      </div>
+
+      <div class="accordion" id="analysisAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingWeather">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeather" aria-expanded="false" aria-controls="collapseWeather"><span class="risk-badge unknown" id="badge-weather"></span>Weather</button>
+          </h2>
+          <div id="collapseWeather" class="accordion-collapse collapse" aria-labelledby="headingWeather" data-bs-parent="#analysisAccordion">
+            <div class="accordion-body panel-risk-border"><pre id="weatherResult">Loading...</pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingNotams">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFuel" aria-expanded="false" aria-controls="collapseFuel"><span class="risk-badge unknown" id="badge-fuel"></span>Fuel</button>
+          </h2>
+          <div id="collapseFuel" class="accordion-collapse collapse" aria-labelledby="headingFuel" data-bs-parent="#analysisAccordion">
+            <div class="accordion-body panel-risk-border"><pre id="fuelResult">Loading...</pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingWeather">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeather" aria-expanded="false" aria-controls="collapseWeather"><span class="risk-badge unknown" id="badge-weather"></span>Weather</button>
+          </h2>
+          <div id="collapseWeather" class="accordion-collapse collapse" aria-labelledby="headingWeather" data-bs-parent="#analysisAccordion">
+            <div class="accordion-body panel-risk-border"><pre id="weatherResult">Loading...</pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingNotams">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNotams" aria-expanded="false" aria-controls="collapseNotams"><span class="risk-badge unknown" id="badge-notams"></span>Notams</button>
+          </h2>
+          <div id="collapseNotams" class="accordion-collapse collapse" aria-labelledby="headingNotams" data-bs-parent="#analysisAccordion">
+            <div class="accordion-body panel-risk-border"><pre id="notamsResult">Loading...</pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingAreaNotams">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAreaNotams" aria-expanded="false" aria-controls="collapseAreaNotams"><span class="risk-badge unknown" id="badge-area_notams"></span>Area notams</button>
+          </h2>
+          <div id="collapseAreaNotams" class="accordion-collapse collapse" aria-labelledby="headingAreaNotams" data-bs-parent="#analysisAccordion">
+            <div class="accordion-body panel-risk-border"><pre id="areaNotamsResult">Loading...</pre></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/analyze_result.js"></script>
+  </body>
+</html>
