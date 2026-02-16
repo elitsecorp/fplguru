@@ -31,7 +31,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 CSRF_TRUSTED_ORIGINS = [
-    "fplguru-production.up.railway.app",
+    "https://fplguru-production.up.railway.app",
 ]
 ROOT_URLCONF = 'fplguru.urls'
 
