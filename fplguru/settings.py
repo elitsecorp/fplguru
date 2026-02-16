@@ -6,6 +6,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me-for-production')
 DEBUG = True
 ALLOWED_HOSTS = ['*', 'fplguru-production.up.railway.app']
+DATA_UPLOAD_MAX_MEMORY_SIZE = 30485760  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 30485760
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
