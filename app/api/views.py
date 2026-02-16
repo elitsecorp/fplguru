@@ -34,11 +34,11 @@ def parse_pdf(request):
     if request.method != 'POST':
         return HttpResponseBadRequest(json.dumps({'error': 'POST required'}), content_type='application/json')
 
-    # DEBUG: print uploaded files for troubleshooting (temporary)
+    # Temporary print of uploaded file keys (keep minimal)
     try:
-        print('DEBUG: parse_pdf called. request.FILES keys:', list(request.FILES.keys()))
-    except Exception as _:
-        # don't fail the request if print/debugging fails
+        print(list(request.FILES.keys()))
+    except Exception:
+        # don't fail the request if printing fails
         pass
 
     file_obj = None
