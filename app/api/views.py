@@ -1,6 +1,6 @@
 import json
 import os
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from services import analyzer, pdf_parser
 from django.conf import settings
@@ -129,3 +129,28 @@ def debug_env(request):
         'fpl_use_llm': use_llm,
         'deepseek_url': os.environ.get('FPL_DEEPSEEK_API_URL', '')
     })
+
+
+def upload_view(request):
+    # Diagnostic endpoint to verify form POSTs reach this view
+    try:
+        print('VIEW REACHED')
+    except Exception:
+        pass
+
+    if request.method == 'POST':
+        try:
+            print('POST DETECTED')
+        except Exception:
+            pass
+        try:
+            print('FILES:', dict(request.FILES))
+        except Exception:
+            pass
+
+        uploaded_file = request.FILES.get('flight_plan')
+        if not uploaded_file:
+            return HttpResponse('No file received')
+        return HttpResponse('File received successfully')
+
+    return HttpResponse('Upload page (GET)')

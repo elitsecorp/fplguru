@@ -19,9 +19,9 @@
 
       <hr/>
       <h3>Or upload PDF</h3>
-      <form id="pdfForm" enctype="multipart/form-data">
+      <form id="pdfForm" method="POST" enctype="multipart/form-data" action="/api/upload/">
         <div class="mb-3">
-          <input type="file" id="pdfFile" name="file" accept="application/pdf" class="form-control" />
+          <input type="file" id="pdfFile" name="flight_plan" accept="application/pdf" class="form-control" />
         </div>
         <button id="parsePdfBtn" class="btn btn-secondary">Parse PDF</button>
       </form>
