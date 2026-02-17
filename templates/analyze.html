@@ -1,41 +1,108 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>FPL Guru - Analyze</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>FPL Guru — Flightplan Safety Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      html,body{height:100%;margin:0;font-family:Poppins,system-ui,Arial,Helvetica,sans-serif;background:#f6f7fb;color:#111}
+      .wrap{max-width:1100px;margin:0 auto;padding:36px}
+      .hero{display:flex;gap:24px;align-items:center;padding:36px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.06)}
+      .hero .left{flex:1}
+      h1{margin:0 0 8px;font-size:32px}
+      p.lead{margin:0 0 18px;color:#4b5563}
+      .controls{display:flex;gap:12px;align-items:center}
+      .btn{display:inline-block;padding:12px 18px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+      .btn.primary{background:#dd2a3b;color:#fff}
+      .btn.secondary{background:#eef2f7;color:#111}
+      input[type=file]{display:none}
+      label.file-btn{display:inline-block;padding:10px 16px;border-radius:10px;background:#fff;border:1px solid #e6e9ee;cursor:pointer}
+      .muted{font-size:13px;color:#6b7280;margin-top:12px}
+      .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:28px}
+      .feature{background:#fff;padding:18px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.04)}
+      .testimonials{margin-top:28px;display:flex;flex-direction:column;gap:12px}
+      .testimonial{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #dd2a3b}
+      .small{font-size:13px;color:#6b7280}
+      footer{margin-top:28px;text-align:center;color:#6b7280;font-size:13px}
+      /* hidden helpers for legacy JS */
+      #payload{display:none;width:100%;min-height:120px}
+      #rawText{display:none}
+      #result{white-space:pre-wrap;margin-top:12px;font-family:monospace;font-size:13px;color:#111}
+    </style>
   </head>
-  <body class="p-3">
-    <div class="container">
-      <h1>FPL Guru - Analyze Flight Plan</h1>
-      <p>Paste flightplan JSON and click Analyze, or upload a FPL PDF to parse it into JSON. The system will only flag potential threats; it will not make operational decisions.</p>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div class="left">
+          <h1>FPL Guru</h1>
+          <p class="lead">Deterministic OFP parsing with conservative assistant augmentation. Extract auditable flightplan JSON, then run focused weather and NOTAM risk analyses per-airport and enroute.</p>
 
-      <div class="mb-3">
-        <label for="payload" class="form-label">JSON Payload</label>
-        <textarea id="payload" class="form-control" rows="10">{ "flightplan": {}, "observations": [] }</textarea>
-      </div>
-      <button id="analyzeBtn" class="btn btn-primary">Analyze</button>
+          <div class="controls">
+            <form id="pdfForm" method="POST" enctype="multipart/form-data" style="display:inline-block;margin:0">
+              {% csrf_token %}
+              <input id="pdfFile" name="file" type="file" accept="application/pdf" />
+              <label for="pdfFile" class="file-btn">Choose PDF</label>
+            </form>
 
-      <hr/>
-      <h3>Or upload PDF</h3>
-      <form id="pdfForm" method="POST" enctype="multipart/form-data" action="/api/upload/">
-        {% csrf_token %}
-        <div class="mb-3">
-          <input type="file" id="pdfFile" name="flight_plan" accept="application/pdf" class="form-control" />
+            <button id="analyzeBtn" class="btn primary" disabled>Analyze</button>
+            <button id="helpBtn" class="btn secondary" onclick="window.open('/docs/usage','_blank')">How it works</button>
+          </div>
+
+          <div id="result" class="small" aria-live="polite"></div>
+          <div class="muted">Tip: upload your OFP PDF. The app will parse it and open the Analysis page automatically. If redirects are blocked by extensions, use the 'Go to Analysis' button that appears.</div>
         </div>
-        <button id="parsePdfBtn" class="btn btn-secondary">Parse PDF</button>
-      </form>
 
-      <h3 class="mt-4">Extracted PDF Text</h3>
-      <div class="mb-3">
-        <label for="rawText" class="form-label">Raw extracted text (from PDF)</label>
-        <textarea id="rawText" class="form-control" rows="12" readonly placeholder="Raw PDF text will appear here after parsing"></textarea>
-      </div>
+        <div class="right" style="width:320px">
+          <div style="background:#fafafa;padding:18px;border-radius:10px">
+            <strong>Why FPL Guru?</strong>
+            <ul style="margin:8px 0 0 18px;color:#374151">
+              <li>Deterministic parsing — rule-based, auditable output</li>
+              <li>Per-airport NOTAM segmentation for operational clarity</li>
+              <li>Optional conservative LLM augmentation under operator control</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
-      <h2 class="mt-4">Result</h2>
-      <pre id="result" class="border p-3" style="white-space:pre-wrap;"></pre>
-    </div>
+      <section class="features">
+        <div class="feature">
+          <strong>Fast parsing</strong>
+          <p class="small">Extract the minimal flightplan JSON (ICAO-keyed weather, NOTAM buckets) in seconds.</p>
+        </div>
+        <div class="feature">
+          <strong>Focused analysis</strong>
+          <p class="small">Run per-section analyses for Departure/Destination/Alternates and Enroute segments.</p>
+        </div>
+        <div class="feature">
+          <strong>Auditable output</strong>
+          <p class="small">All assistant responses are returned raw so you can review the basis for recommendations.</p>
+        </div>
+        <div class="feature">
+          <strong>Safety-first</strong>
+          <p class="small">LLM may only fill missing values when enabled — never overwrite deterministic fields.</p>
+        </div>
+      </section>
+
+      <section class="testimonials">
+        <div class="testimonial">
+          “Saved our planning team time and gave clear, auditable NOTAM breakdowns.” — Ops Lead, Regional Carrier
+        </div>
+        <div class="testimonial">
+          “The per-airport weather panels highlighted a convective risk we’d otherwise have missed.” — Dispatch Manager
+        </div>
+      </section>
+
+      <!-- Hidden payload and rawText used by legacy JS and to pass to the analysis results page -->
+      <textarea id="payload">{ "flightplan": {}, "observations": [] }</textarea>
+      <textarea id="rawText"></textarea>
+
+      <footer>
+        <div class="small">©2026 FPL Guru — For operational use only. Always cross-check official sources.</div>
+      </footer>
+    </main>
 
     <script src="/static/js/analyze.js"></script>
   </body>

@@ -839,6 +839,42 @@ def parse_pdf_file(file_bytes: bytes, use_llm: bool = None, timeout: int = 20):
 
     llm_min = _map_llm_to_minimal(llm_fp_raw)
 
+    # Normalize LLM weather shape: if the LLM returned weather keyed by segments
+    # (e.g. 'takeoff','destination','enroute','etops') convert it into an
+    # ICAO-keyed mapping so the conservative merge logic below behaves correctly.
+    try:
+        wm = llm_min.get('weather') or {}
+        if isinstance(wm, dict) and any(k in ('takeoff', 'destination', 'enroute', 'etops') for k in wm.keys()):
+            normalized_wm = {}
+            dep = rule_fp.get('departure')
+            dest = rule_fp.get('destination')
+            # map generic takeoff/destination blocks to the parsed departure/destination ICAOs
+            if 'takeoff' in wm and dep:
+                normalized_wm.setdefault(dep, {})['takeoff'] = wm.get('takeoff')
+            if 'destination' in wm and dest:
+                normalized_wm.setdefault(dest, {})['destination'] = wm.get('destination')
+            # enroute may be an ICAO->obj mapping or a generic block
+            if 'enroute' in wm:
+                en = wm.get('enroute')
+                if isinstance(en, dict) and all(re.match(r'^[A-Z]{4}$', k) for k in en.keys() if isinstance(k, str)):
+                    for k, v in en.items():
+                        normalized_wm.setdefault(k, {})['enroute'] = v
+                else:
+                    normalized_wm.setdefault('GENERIC', {})['enroute'] = en
+            # etops similar handling
+            if 'etops' in wm:
+                et = wm.get('etops')
+                if isinstance(et, dict) and all(re.match(r'^[A-Z]{4}$', k) for k in et.keys() if isinstance(k, str)):
+                    for k, v in et.items():
+                        normalized_wm.setdefault(k, {})['etops'] = v
+                else:
+                    normalized_wm.setdefault('GENERIC', {})['etops'] = et
+            # replace weather in llm_min with normalized mapping
+            llm_min['weather'] = normalized_wm
+    except Exception:
+        # keep original llm_min on failure
+        pass
+
     # Conservative merge: fill only missing/null entries in rule_fp
     merged = copy.deepcopy(rule_fp)
     # top-level simple keys

@@ -85,6 +85,14 @@ def extract_flightplan_from_text(text: str, schema: Dict[str, Any] = None, timeo
         'stream': False,
     }
 
+    # DEBUG: Log payload sent to LLM (do not log API keys)
+    try:
+        preview = user_instructions if len(user_instructions) <= 20000 else user_instructions[:20000] + '\n...[TRUNCATED]...'
+        print(f'LLM extract_flightplan_from_text payload lengths: send_text={len(send_text) if "send_text" in locals() and send_text else 0}, user_instructions={len(user_instructions)}')
+        print('LLM extract_flightplan_from_text preview:\n', preview)
+    except Exception:
+        pass
+
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
@@ -230,6 +238,15 @@ def analyze_section(section: str, data: Dict[str, Any], timeout: int = 15) -> Di
 
     - For other sections it preserves the legacy single-section return with keys: section, risk_level, flags, details, raw_llm_response_text, llm_error (optional).
     """
+    # Debug: print the raw `data` received by this function before any normalization
+    try:
+        received_preview = json.dumps(data) if isinstance(data, (dict, list)) else str(data)
+        if len(received_preview) > 2000:
+            received_preview = received_preview[:2000] + '\n...[TRUNCATED]...'
+        print('LLM analyze_section RECEIVED data preview:', received_preview)
+    except Exception:
+        pass
+
     # Local helper to expand common NOTAM abbreviations
     def _expand_abbrevs_local(s: str) -> str:
         if not s:
@@ -259,7 +276,10 @@ def analyze_section(section: str, data: Dict[str, Any], timeout: int = 15) -> Di
     # Normalize notams if necessary (support legacy shapes)
     if section == 'notams':
         notams = data.get('notams') if isinstance(data.get('notams'), dict) else None
-        if not notams:
+        if notams:
+            # Already normalized shape
+            data = {'notams': notams}
+        else:
             # attempt to build from legacy fields
             departure = data.get('departure') or None
             destination = data.get('destination') or None
@@ -348,6 +368,15 @@ def analyze_section(section: str, data: Dict[str, Any], timeout: int = 15) -> Di
     data_json = json.dumps(data) if data is not None else '{}'
     if len(data_json) > 18000:
         data_json = data_json[:18000] + '\n...[TRUNCATED]...'
+
+    # DEBUG: log the payload being sent to the LLM for analysis
+    try:
+        full_len = len(json.dumps(data)) if data is not None else 0
+        preview = data_json if len(data_json) <= 20000 else data_json[:20000] + '\n...[TRUNCATED]...'
+        print(f'LLM analyze_section payload for section="{section}", full_length={full_len}')
+        print('LLM analyze_section preview:\n', preview)
+    except Exception:
+        pass
 
     user_instructions = f'Analyze the following section "{section}". {schema_hint} Data:\n{data_json}'
 

@@ -1,0 +1,86 @@
+FPL Guru — Quick function → data map
+Date: 2026-02-17
+
+Purpose: simple, one-page reference: which function receives which data and what it returns.
+
+Frontend
+--------
+- static/js/analyze.js :: PDF upload handler
+  - Input: FormData with key 'file' (PDF Blob)
+  - Calls: POST /api/parse_pdf/
+  - Stores: sessionStorage['fplguru_payload'] = { flightplan: <minimal>, observations: [] }
+
+- static/js/analyze.js :: manual payload editor
+  - Input: JSON entered by operator (editor)
+  - Action: stores same shape to sessionStorage and navigates to /analyze/result/
+
+- static/js/analyze_result.js :: callSectionAnalysis(section, flightplan)
+  - Input: section ("weather"|"notams"), flightplan (minimal dict)
+  - POSTs: { section: <section>, data: { flightplan: <minimal> } } -> /api/analyze_section/
+  - Logs: POSTING_ANALYZE_SECTION (browser console)
+
+Backend views
+-------------
+- app/api/views.py :: parse_pdf(request)
+  - Receives: multipart/form-data (request.FILES['file']) OR raw request.body (PDF bytes)
+  - Action: reads bytes -> services.pdf_parser.parse_pdf_file(file_bytes)
+  - Returns: JSON = minimal flightplan dict
+  - Logs: PARSED_FLIGHTPLAN_PREVIEW (truncated)
+
+- app/api/views.py :: analyze_section(request)
+  - Receives: JSON { section, data }
+  - Logs: ANALYZE_SECTION_RAW_BODY (raw request.body preview)
+  - Calls: services.llm_parser.analyze_section(section, data)
+  - Returns: JSON = analysis result (by_part mapping or legacy single-section)
+
+- app/api/views.py :: analyze_fpl(request)
+  - Receives: JSON { flightplan, observations }
+  - Calls: services.analyzer.analyze_flightplan(flightplan, observations, THRESHOLDS)
+  - Returns: deterministic analysis JSON
+
+Parser / Services
+-----------------
+- services/pdf_parser.py :: extract_text_from_pdf_bytes(file_bytes)
+  - Input: raw PDF bytes
+  - Output: plain text (string)
+
+- services/pdf_parser.py :: parse_text_to_flightplan(text)
+  - Input: extracted plaintext
+  - Output: internal `fp` (rich dict) OR minimal dict (may be legacy wrapper)
+  - Key internals: airport_notams, notams_by_airport, weather_sections (ICAO-keyed or segment-keyed)
+
+- services/pdf_parser.py :: parse_pdf_file(file_bytes)
+  - Input: file_bytes
+  - Steps: extract_text_from_pdf_bytes -> parse_text_to_flightplan -> (optional LLM augmentation) -> normalize to minimal schema
+  - Output: minimal flightplan dict with keys: flight_number, route, departure, destination, destination_alternate, weights, fuel, weather (ICAO->segments), notams (consolidated)
+  - If FPL_USE_LLM=1 and minimal fields missing, calls services.llm_parser.extract_flightplan_from_text(text) and conservatively merges missing values only.
+
+- services/llm_parser.py :: extract_flightplan_from_text(text)
+  - Input: plaintext (possibly truncated)
+  - Calls external LLM (chat completion) with schema hints
+  - Output: preferred {'flightplan': {...}, 'data_quality': {...}, 'raw_llm_response_text': '...'} OR minimal dict
+
+- services/llm_parser.py :: analyze_section(section, data)
+  - Input: section string and data which may be either:
+      - minimal flightplan dict
+      - OR wrapper { flightplan: <minimal> }
+  - Normalization: if wrapper -> extract flightplan
+    - For 'weather': ensure payload shape { weather: { departure: {ICAO: {...}}, enroute: {...}, destination: {...}, destination_alternate: {...} } }
+    - For 'notams': ensure payload shape { notams: { departure: {...}, destination: {...}, enroute_alternates: {...}, etops_alternates: {...}, company: [...], area: [...] } }
+  - Logs: LLM analyze_section payload preview (what is sent to LLM)
+  - Calls external LLM and returns normalized analysis JSON:
+      { section, by_part: {...}, raw_llm_response_text }
+
+Deterministic analyzer
+----------------------
+- services/analyzer.py :: analyze_flightplan(flightplan, observations, thresholds)
+  - Input: minimal flightplan dict and observations list
+  - Output: deterministic rule-based checks (risk flags, data_quality, evidence)
+
+Notes / Debugging tips
+---------------------
+- Confirm sessionStorage content: JSON.parse(sessionStorage.getItem('fplguru_payload')).flightplan must include .notams and .weather.
+- Inspect Network request body for POST /api/analyze_section/ (should match the body logged by ANALYZE_SECTION_RAW_BODY on server).
+- If server receives correct JSON but llm_parser preview is empty: add debug print at top of services/llm_parser.analyze_section to log the `data` param (I can add it).
+
+End of mapping

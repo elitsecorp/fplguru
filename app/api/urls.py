@@ -7,4 +7,5 @@ urlpatterns = [
     path('parse_pdf/', views.parse_pdf, name='api_parse_pdf'),
     path('parse_llm/', views.parse_with_llm, name='api_parse_llm'),
     path('upload/', views.upload_view, name='api_upload_view'),
+    path('submit_analysis/', views.submit_analysis, name='api_submit_analysis'),
 ]

@@ -1,7 +1,12 @@
-async function callSectionAnalysis(section, payload) {
-  // Payload is the full flightplan JSON; we send only relevant subset to the API
-  const body = { section: section, data: payload };
+async function callSectionAnalysis(section, payload, extra = {}) {
+  // Ensure we always send the minimal flightplan schema under a consistent key so
+  // server-side handlers and normalization logic receive the expected shape.
+  // Allow extra metadata (part, focus) to be merged into the data object.
+  const dataObj = Object.assign({ flightplan: payload }, extra);
+  const body = { section: section, data: dataObj };
   try {
+    // DEBUG: log payload being POSTed so the browser Network tab shows exact body
+    try { console.log('POSTING_ANALYZE_SECTION', section, JSON.parse(JSON.stringify(body))); } catch (e) {}
     const res = await fetch('/api/analyze_section/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -16,15 +21,13 @@ async function callSectionAnalysis(section, payload) {
 }
 
 function findSubsetForSection(section, flightplan) {
-  // Conservative subsets tailored to the new minimal schema
-  switch (section) {
-    case 'weather':
-      return { weather: flightplan.weather || {} };
-    case 'notams':
-      return { notams: flightplan.notams || {} };
-    default:
-      return {};
-  }
+  // Previously we sent only a small subset which could be empty.
+  // Send the full flightplan object so the analyzer/LLM has all context
+  // and can derive weather/notams even if nested or named differently.
+  // The server-side analyzer accepts either the minimal flightplan dict
+  // or a wrapper { flightplan: {...} } — we send the minimal object itself.
+  if (!flightplan || typeof flightplan !== 'object') return {};
+  return flightplan;
 }
 
 function riskToClass(risk) {
@@ -66,16 +69,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Only analyze weather and notams as per minimal schema
-  const sections = ['weather','notams'];
-  const sectionToElement = {
-    weather: 'weatherResult',
-    notams: 'notamsResult'
-  };
-  const sectionToBadge = {
-    weather: 'badge-weather',
-    notams: 'badge-notams'
-  };
+  // We'll drive multiple targeted analysis calls per the user's request.
+  // Weather: analyze departure, destination, destination_alternate, and enroute alternates.
+  // NOTAMs: analyze departure, destination, enroute alternates, company, and area.
 
   function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -87,6 +83,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, '&#39;');
   }
 
+  // Render a leaf analysis object {risk_level, flags, details} into HTML and return overall risk
   function renderLeafAnalysis(a) {
     const risk = a && a.risk_level ? a.risk_level : 'unknown';
     const details = a && a.details ? a.details : null;
@@ -107,84 +104,102 @@ window.addEventListener('DOMContentLoaded', async () => {
     return 0;
   }
 
-  const promises = sections.map(async (s) => {
-    const subset = findSubsetForSection(s, flightplan);
-    const result = await callSectionAnalysis(s, subset);
-    const el = document.getElementById(sectionToElement[s]);
+  // Orchestrate weather calls
+  const weatherParts = [
+    { part: 'departure', title: 'Departure Weather', focus: 'Analyze winds, visibility, QNH, cloud tops and convective risk for the departure airport and identify operational risks.' },
+    { part: 'destination', title: 'Destination Weather', focus: 'Analyze winds, visibility, QNH, cloud tops and convective risk for the destination airport and identify operational risks.' },
+    { part: 'destination_alternate', title: 'Destination Alternate Weather', focus: 'Analyze the destination alternate weather and any risks that would affect diversion.' },
+    { part: 'enroute_alternates', title: 'Enroute Alternates / Enroute Weather', focus: 'Assess enroute weather risks including icing, turbulence, convective activity, low clouds, and wind shear for enroute alternates and enroute waypoints.' }
+  ];
 
-    if (result && result.error) {
-      if (el) el.innerText = 'Error: ' + result.error;
-      return result;
-    }
-
-    // If the LLM/analyzer returned by_part (multi-part), render each part
-    if (result && result.by_part && typeof result.by_part === 'object') {
-      let html = '';
-      let overallSeverity = 0;
-      for (const [partKey, partVal] of Object.entries(result.by_part)) {
-        html += '<div class="mb-3"><h5>' + escapeHtml(partKey) + '</h5>';
-        // If partVal is a mapping of ICAO -> analysis
-        if (partVal && typeof partVal === 'object' && !partVal.risk_level && Object.keys(partVal).length && Object.keys(partVal).every(k => /^[A-Z]{4}$/.test(k) || k === 'GENERIC')) {
-          // iterate ICAOs
-          for (const [icao, a] of Object.entries(partVal)) {
-            const rendered = renderLeafAnalysis(a || {});
-            overallSeverity = Math.max(overallSeverity, severityValue(rendered.risk));
-            html += '<div class="ms-3"><h6>' + escapeHtml(icao) + '</h6>' + rendered.html + '</div>';
-          }
-        } else {
-          // single leaf for this part
-          const rendered = renderLeafAnalysis(partVal || {});
+  // Populate each weather sub-panel individually (template contains dedicated panel elements)
+  for (const wp of weatherParts) {
+    const res = await callSectionAnalysis('weather', flightplan, { analyze_part: wp.part, focus: wp.focus });
+    const panelId = 'panel-weather-' + wp.part;
+    const badgeId = 'badge-weather-' + wp.part;
+    const panelEl = document.getElementById(panelId);
+    const badgeEl = document.getElementById(badgeId);
+    let partHtml = '';
+    let overallSeverity = 0;
+    if (res && res.error) {
+      partHtml = '<div>Error: ' + escapeHtml(res.error) + '</div>';
+    } else if (res && res.by_part) {
+      const partVal = res.by_part[wp.part] || res.by_part[wp.part.replace('_alternates','')];
+      if (partVal && typeof partVal === 'object' && Object.keys(partVal).length && !partVal.risk_level) {
+        for (const [icao, a] of Object.entries(partVal)) {
+          const rendered = renderLeafAnalysis(a || {});
           overallSeverity = Math.max(overallSeverity, severityValue(rendered.risk));
-          html += rendered.html;
+          partHtml += '<div class="ms-3"><h6>' + escapeHtml(icao) + '</h6>' + rendered.html + '</div>';
         }
-        html += '</div>';
+      } else {
+        const rendered = renderLeafAnalysis(partVal || {});
+        overallSeverity = Math.max(overallSeverity, severityValue(rendered.risk));
+        partHtml += rendered.html;
       }
-      // Add raw assistant output if provided
-      if (result.raw_llm_response_text) {
-        html += '<div class="mt-2"><details><summary>Raw assistant output</summary><pre style="white-space:pre-wrap;">' + escapeHtml(result.raw_llm_response_text) + '</pre></details></div>';
-      }
-      if (el) el.innerHTML = html || 'No observations.';
-
-      // apply overall color classes and badge
-      const overallRisk = overallSeverity === 3 ? 'high' : (overallSeverity === 2 ? 'moderate' : (overallSeverity === 1 ? 'low' : null));
-      const badgeEl = document.getElementById(sectionToBadge[s]);
-      const panelBody = el ? el.closest('.panel-risk-border') : null;
-      const cls = riskToClass(overallRisk);
+      if (res.raw_llm_response_text) partHtml += '<div class="mt-2"><details><summary>Raw assistant output</summary><pre style="white-space:pre-wrap;">' + escapeHtml(res.raw_llm_response_text) + '</pre></details></div>';
+    } else {
+      partHtml = '<div>No observations.</div>';
+    }
+    if (panelEl) panelEl.innerHTML = '<h5>' + escapeHtml(wp.title) + '</h5>' + partHtml;
+    // Apply badge and panel color based on severity
+    const overallRisk = overallSeverity === 3 ? 'high' : (overallSeverity === 2 ? 'moderate' : (overallSeverity === 1 ? 'low' : null));
+    if (badgeEl) badgeEl.className = 'risk-badge ' + (overallRisk ? (overallRisk === 'low' ? 'low' : (overallRisk === 'moderate' ? 'moderate' : 'high')) : 'unknown');
+    if (panelEl) {
+      const panelBody = panelEl.closest('.panel-risk-border');
       if (panelBody) {
         panelBody.classList.remove('risk-low','risk-moderate','risk-high','risk-unknown');
-        panelBody.classList.add(cls);
+        panelBody.classList.add(overallRisk ? (overallRisk === 'low' ? 'risk-low' : (overallRisk === 'moderate' ? 'risk-moderate' : 'risk-high')) : 'risk-unknown');
       }
-      if (badgeEl) badgeEl.className = 'risk-badge ' + riskToBadgeClass(overallRisk);
-
-      return result;
     }
+  }
 
-    // Legacy single-section response handling
-    const risk = (result && result.risk_level) ? result.risk_level : null;
-    const details = (result && result.details) ? result.details : null;
-    const flags = (result && Array.isArray(result.flags)) ? result.flags : [];
-    const raw = (result && result.raw_llm_response_text) ? result.raw_llm_response_text : null;
+  // Orchestrate NOTAM calls
+  const notamParts = [
+    { part: 'departure', title: 'Departure NOTAMs', focus: 'Emphasize runway closures, navaid degradation, runway shortening and any NOTAM that impacts takeoff.' },
+    { part: 'destination', title: 'Destination NOTAMs', focus: 'Emphasize runway closures, navaid degradation, runway shortening and any NOTAM that impacts landing.' },
+    { part: 'enroute_alternates', title: 'Enroute NOTAMs', focus: 'Emphasize navaid degradation, runway closures at alternates and enroute aerodromes, and any hazards affecting diversion.' },
+    { part: 'company', title: 'Company NOTAMs', focus: 'Highlight company-level operational NOTAMs or company procedures that affect this flight.' },
+    { part: 'area', title: 'Area NOTAMs', focus: 'Emphasize airspace closures, GPS/jamming, and other area-level risks.' }
+  ];
 
-    let html = '';
-    html += '<div><strong>Risk:</strong> ' + escapeHtml(risk || 'unknown') + '</div>';
-    if (details) html += '<div class="mt-2"><strong>Details:</strong><div>' + escapeHtml(details) + '</div></div>';
-    if (flags && flags.length) html += '<div class="mt-2"><strong>Flags:</strong><ul>' + flags.map(f => '<li>' + escapeHtml(f) + '</li>').join('') + '</ul></div>';
-    if (raw) html += '<div class="mt-2"><details><summary>Raw assistant output</summary><pre style="white-space:pre-wrap;">' + escapeHtml(raw) + '</pre></details></div>';
-    if (!details && (!flags || flags.length === 0) && !raw) html += '<div>No observations.</div>';
-
-    if (el) el.innerHTML = html;
-
-    const badgeEl = document.getElementById(sectionToBadge[s]);
-    const panelBody = el ? el.closest('.panel-risk-border') : null;
-    const cls = riskToClass(risk);
-    if (panelBody) {
-      panelBody.classList.remove('risk-low','risk-moderate','risk-high','risk-unknown');
-      panelBody.classList.add(cls);
+  // Populate each NOTAM sub-panel individually
+  for (const np of notamParts) {
+    const res = await callSectionAnalysis('notams', flightplan, { analyze_part: np.part, focus: np.focus });
+    const panelId = 'panel-notams-' + np.part;
+    const badgeId = 'badge-notams-' + np.part;
+    const panelEl = document.getElementById(panelId);
+    const badgeEl = document.getElementById(badgeId);
+    let partHtml = '';
+    let overallSeverity = 0;
+    if (res && res.error) {
+      partHtml = '<div>Error: ' + escapeHtml(res.error) + '</div>';
+    } else if (res && res.by_part) {
+      const partVal = res.by_part[np.part] || {};
+      if (partVal && typeof partVal === 'object' && !partVal.risk_level && Object.keys(partVal).length) {
+        for (const [k, a] of Object.entries(partVal)) {
+          const rendered = renderLeafAnalysis(a || {});
+          overallSeverity = Math.max(overallSeverity, severityValue(rendered.risk));
+          partHtml += '<div class="ms-3"><h6>' + escapeHtml(k) + '</h6>' + rendered.html + '</div>';
+        }
+      } else {
+        const rendered = renderLeafAnalysis(partVal || {});
+        overallSeverity = Math.max(overallSeverity, severityValue(rendered.risk));
+        partHtml += rendered.html;
+      }
+      if (res.raw_llm_response_text) partHtml += '<div class="mt-2"><details><summary>Raw assistant output</summary><pre style="white-space:pre-wrap;">' + escapeHtml(res.raw_llm_response_text) + '</pre></details></div>';
+    } else {
+      partHtml = '<div>No observations.</div>';
     }
-    if (badgeEl) badgeEl.className = 'risk-badge ' + riskToBadgeClass(risk);
+    if (panelEl) panelEl.innerHTML = '<h5>' + escapeHtml(np.title) + '</h5>' + partHtml;
+    const overallRisk = overallSeverity === 3 ? 'high' : (overallSeverity === 2 ? 'moderate' : (overallSeverity === 1 ? 'low' : null));
+    if (badgeEl) badgeEl.className = 'risk-badge ' + (overallRisk ? (overallRisk === 'low' ? 'low' : (overallRisk === 'moderate' ? 'moderate' : 'high')) : 'unknown');
+    if (panelEl) {
+      const panelBody = panelEl.closest('.panel-risk-border');
+      if (panelBody) {
+        panelBody.classList.remove('risk-low','risk-moderate','risk-high','risk-unknown');
+        panelBody.classList.add(overallRisk ? (overallRisk === 'low' ? 'risk-low' : (overallRisk === 'moderate' ? 'risk-moderate' : 'risk-high')) : 'risk-unknown');
+      }
+    }
+  }
 
-    return result;
-  });
-
-  await Promise.all(promises);
-});
+ });

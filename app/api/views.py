@@ -4,6 +4,9 @@ from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from services import analyzer, pdf_parser
 from django.conf import settings
+from .models import TelegramUser, FPLUpload
+import hashlib, hmac, time
+from django.utils import timezone
 
 # Load thresholds once (deterministic)
 THRESHOLDS = analyzer.load_thresholds(getattr(settings, 'THRESHOLDS_FILE', None))
@@ -58,10 +61,42 @@ def parse_pdf(request):
     if not file_bytes:
         return HttpResponseBadRequest(json.dumps({'error': 'no file provided'}), content_type='application/json')
 
+    # authenticate Telegram user from session (optional enforcement)
+    tg_user = None
+    try:
+        tg_user_id = request.session.get('telegram_user_id')
+        if tg_user_id:
+            tg_user = TelegramUser.objects.filter(id=tg_user_id).first()
+    except Exception:
+        tg_user = None
+
+    if tg_user:
+        today = timezone.now().date()
+        count_today = FPLUpload.objects.filter(user=tg_user, created_at__date=today).count()
+        if count_today >= 2:
+            return HttpResponseBadRequest(json.dumps({'error': 'quota_exceeded', 'message': 'Daily limit (2) reached'}), content_type='application/json')
+
     try:
         parsed = pdf_parser.parse_pdf_file(file_bytes)
     except Exception as e:
         return HttpResponseBadRequest(json.dumps({'error': 'failed to parse pdf', 'detail': str(e)}), content_type='application/json')
+
+    # persist upload record when user present
+    try:
+        if tg_user:
+            flight_number = parsed.get('flight_number') if isinstance(parsed, dict) else None
+            FPLUpload.objects.create(user=tg_user, flight_number=flight_number, payload=parsed)
+    except Exception:
+        pass
+
+    # DEBUG: print parsed flightplan (truncated) to server logs for diagnosis
+    try:
+        parsed_preview = json.dumps(parsed) if isinstance(parsed, dict) else str(parsed)
+        if len(parsed_preview) > 2000:
+            parsed_preview = parsed_preview[:2000] + '\n...[TRUNCATED]...'
+        print('PARSED_FLIGHTPLAN_PREVIEW:', parsed_preview)
+    except Exception:
+        pass
 
     return JsonResponse(parsed, safe=False)
 
@@ -97,6 +132,17 @@ def parse_with_llm(request):
 def analyze_section(request):
     if request.method != 'POST':
         return HttpResponseBadRequest(json.dumps({'error': 'POST required'}), content_type='application/json')
+
+    # DEBUG: print raw request body to help trace payload issues between frontend and server
+    try:
+        try:
+            raw_preview = request.body.decode('utf-8', errors='replace')[:5000]
+        except Exception:
+            raw_preview = str(request.body)[:5000]
+        print('ANALYZE_SECTION_RAW_BODY:', raw_preview)
+    except Exception:
+        pass
+
     try:
         payload = json.loads(request.body.decode('utf-8'))
     except Exception:
@@ -131,6 +177,7 @@ def debug_env(request):
     })
 
 
+@csrf_exempt
 def upload_view(request):
     # Diagnostic endpoint to verify form POSTs reach this view
     try:
@@ -154,3 +201,10 @@ def upload_view(request):
         return HttpResponse('File received successfully')
 
     return HttpResponse('Upload page (GET)')
+
+
+@csrf_exempt
+def submit_analysis(request):
+    """Accepts form POST with field 'payload' (JSON string). Returns an HTML page that sets sessionStorage['fplguru_payload'] and redirects to the analysis page.
+
+    This avoids server-side session handling while ensuring the analysis page receives the full JSON payload im

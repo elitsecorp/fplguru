@@ -11,13 +11,11 @@
       .risk-moderate { background-color: #fff3cd !important; color: #856404 !important; }
       .risk-high { background-color: #f8d7da !important; color: #721c24 !important; }
       .risk-unknown { background-color: #e2e3e5 !important; color: #6c757d !important; }
-      /* Apply a subtle left border to the panel body */
       .panel-risk-border { border-left: 6px solid transparent; padding-left: 0.75rem; }
       .panel-risk-border.risk-low { border-left-color: #28a745; }
       .panel-risk-border.risk-moderate { border-left-color: #ffc107; }
       .panel-risk-border.risk-high { border-left-color: #dc3545; }
       .panel-risk-border.risk-unknown { border-left-color: #6c757d; }
-      /* Badge style shown next to heading */
       .risk-badge { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle; }
       .risk-badge.low { background:#28a745; }
       .risk-badge.moderate { background:#ffc107; }
@@ -40,39 +38,123 @@
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeather" aria-expanded="false" aria-controls="collapseWeather"><span class="risk-badge unknown" id="badge-weather"></span>Weather</button>
           </h2>
           <div id="collapseWeather" class="accordion-collapse collapse" aria-labelledby="headingWeather" data-bs-parent="#analysisAccordion">
-            <div class="accordion-body panel-risk-border"><pre id="weatherResult">Loading...</pre></div>
+            <div class="accordion-body panel-risk-border">
+              <!-- Sub-accordion for weather parts -->
+              <div class="accordion" id="weatherSubAccordion">
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-weather-departure">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-weather-departure" aria-expanded="false" aria-controls="collapse-weather-departure">
+                      <span class="risk-badge unknown" id="badge-weather-departure"></span>Departure Weather
+                    </button>
+                  </h2>
+                  <div id="collapse-weather-departure" class="accordion-collapse collapse" aria-labelledby="heading-weather-departure" data-bs-parent="#weatherSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-weather-departure">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-weather-destination">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-weather-destination" aria-expanded="false" aria-controls="collapse-weather-destination">
+                      <span class="risk-badge unknown" id="badge-weather-destination"></span>Destination Weather
+                    </button>
+                  </h2>
+                  <div id="collapse-weather-destination" class="accordion-collapse collapse" aria-labelledby="heading-weather-destination" data-bs-parent="#weatherSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-weather-destination">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-weather-destination_alternate">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-weather-destination_alternate" aria-expanded="false" aria-controls="collapse-weather-destination_alternate">
+                      <span class="risk-badge unknown" id="badge-weather-destination_alternate"></span>Destination Alternate Weather
+                    </button>
+                  </h2>
+                  <div id="collapse-weather-destination_alternate" class="accordion-collapse collapse" aria-labelledby="heading-weather-destination_alternate" data-bs-parent="#weatherSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-weather-destination_alternate">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-weather-enroute_alternates">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-weather-enroute_alternates" aria-expanded="false" aria-controls="collapse-weather-enroute_alternates">
+                      <span class="risk-badge unknown" id="badge-weather-enroute_alternates"></span>Enroute / Enroute Alternates Weather
+                    </button>
+                  </h2>
+                  <div id="collapse-weather-enroute_alternates" class="accordion-collapse collapse" aria-labelledby="heading-weather-enroute_alternates" data-bs-parent="#weatherSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-weather-enroute_alternates">Loading...</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
+
         <div class="accordion-item">
           <h2 class="accordion-header" id="headingNotams">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFuel" aria-expanded="false" aria-controls="collapseFuel"><span class="risk-badge unknown" id="badge-fuel"></span>Fuel</button>
-          </h2>
-          <div id="collapseFuel" class="accordion-collapse collapse" aria-labelledby="headingFuel" data-bs-parent="#analysisAccordion">
-            <div class="accordion-body panel-risk-border"><pre id="fuelResult">Loading...</pre></div>
-          </div>
-        </div>
-        <div class="accordion-item">
-          <h2 class="accordion-header" id="headingWeather">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeather" aria-expanded="false" aria-controls="collapseWeather"><span class="risk-badge unknown" id="badge-weather"></span>Weather</button>
-          </h2>
-          <div id="collapseWeather" class="accordion-collapse collapse" aria-labelledby="headingWeather" data-bs-parent="#analysisAccordion">
-            <div class="accordion-body panel-risk-border"><pre id="weatherResult">Loading...</pre></div>
-          </div>
-        </div>
-        <div class="accordion-item">
-          <h2 class="accordion-header" id="headingNotams">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNotams" aria-expanded="false" aria-controls="collapseNotams"><span class="risk-badge unknown" id="badge-notams"></span>Notams</button>
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNotams" aria-expanded="false" aria-controls="collapseNotams"><span class="risk-badge unknown" id="badge-notams"></span>NOTAMs</button>
           </h2>
           <div id="collapseNotams" class="accordion-collapse collapse" aria-labelledby="headingNotams" data-bs-parent="#analysisAccordion">
-            <div class="accordion-body panel-risk-border"><pre id="notamsResult">Loading...</pre></div>
-          </div>
-        </div>
-        <div class="accordion-item">
-          <h2 class="accordion-header" id="headingAreaNotams">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAreaNotams" aria-expanded="false" aria-controls="collapseAreaNotams"><span class="risk-badge unknown" id="badge-area_notams"></span>Area notams</button>
-          </h2>
-          <div id="collapseAreaNotams" class="accordion-collapse collapse" aria-labelledby="headingAreaNotams" data-bs-parent="#analysisAccordion">
-            <div class="accordion-body panel-risk-border"><pre id="areaNotamsResult">Loading...</pre></div>
+            <div class="accordion-body panel-risk-border">
+              <!-- Sub-accordion for NOTAM parts -->
+              <div class="accordion" id="notamsSubAccordion">
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-notams-departure">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-notams-departure" aria-expanded="false" aria-controls="collapse-notams-departure">
+                      <span class="risk-badge unknown" id="badge-notams-departure"></span>Departure NOTAMs
+                    </button>
+                  </h2>
+                  <div id="collapse-notams-departure" class="accordion-collapse collapse" aria-labelledby="heading-notams-departure" data-bs-parent="#notamsSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-notams-departure">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-notams-destination">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-notams-destination" aria-expanded="false" aria-controls="collapse-notams-destination">
+                      <span class="risk-badge unknown" id="badge-notams-destination"></span>Destination NOTAMs
+                    </button>
+                  </h2>
+                  <div id="collapse-notams-destination" class="accordion-collapse collapse" aria-labelledby="heading-notams-destination" data-bs-parent="#notamsSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-notams-destination">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-notams-enroute_alternates">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-notams-enroute_alternates" aria-expanded="false" aria-controls="collapse-notams-enroute_alternates">
+                      <span class="risk-badge unknown" id="badge-notams-enroute_alternates"></span>Enroute NOTAMs
+                    </button>
+                  </h2>
+                  <div id="collapse-notams-enroute_alternates" class="accordion-collapse collapse" aria-labelledby="heading-notams-enroute_alternates" data-bs-parent="#notamsSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-notams-enroute_alternates">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-notams-company">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-notams-company" aria-expanded="false" aria-controls="collapse-notams-company">
+                      <span class="risk-badge unknown" id="badge-notams-company"></span>Company NOTAMs
+                    </button>
+                  </h2>
+                  <div id="collapse-notams-company" class="accordion-collapse collapse" aria-labelledby="heading-notams-company" data-bs-parent="#notamsSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-notams-company">Loading...</div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-notams-area">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-notams-area" aria-expanded="false" aria-controls="collapse-notams-area">
+                      <span class="risk-badge unknown" id="badge-notams-area"></span>Area NOTAMs
+                    </button>
+                  </h2>
+                  <div id="collapse-notams-area" class="accordion-collapse collapse" aria-labelledby="heading-notams-area" data-bs-parent="#notamsSubAccordion">
+                    <div class="accordion-body panel-risk-border" id="panel-notams-area">Loading...</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       </div>

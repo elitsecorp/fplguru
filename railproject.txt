@@ -1,0 +1,72 @@
+Rail Project - changes to apply / notes (created: 2026-02-16)
+
+Summary of edits made today (for quick reuse when deploying to Railway):
+
+Files changed/added
+- app/api/views.py
+  - Added a minimal print for uploaded file keys and then replaced with a concise print(list(request.FILES.keys())).
+  - Added a diagnostic `upload_view(request)` that prints arrival of requests and files and returns simple HttpResponse messages:
+    - prints: 'VIEW REACHED', 'POST DETECTED', and 'FILES:' followed by request.FILES dict
+    - expects uploaded file under form field name 'flight_plan'
+    - returns 'No file received' when missing, or 'File received successfully' when present
+  - Keep parse_pdf unchanged but note diagnostics are separate (upload_view is a lightweight probe).
+
+- app/api/urls.py
+  - Added mapping: path('upload/', views.upload_view, name='api_upload_view') so diagnostic endpoint is reachable at /api/upload/
+
+- templates/analyze.html
+  - Updated the PDF upload form to ensure a proper multipart POST and CSRF token:
+    <form id="pdfForm" method="POST" enctype="multipart/form-data" action="/api/upload/">
+      {% csrf_token %}
+      <input type="file" id="pdfFile" name="flight_plan" accept="application/pdf" class="form-control" />
+      <button type="submit">Parse PDF</button>
+    </form>
+  - Important: the server-side view expects the file input name to be 'flight_plan'.
+
+- fplguru/settings.py (verify/ensure these exist)
+  - ALLOWED_HOSTS must include your Railway app hostname, e.g. "fplguru-production.up.railway.app" or the project-specific domain.
+  - CSRF_TRUSTED_ORIGINS should include your HTTPS app URL: "https://<your-app>.up.railway.app"
+  - Ensure WhiteNoise config and STATIC_ROOT / STATICFILES_STORAGE are present for static serving on Railway.
+  - CSRF_COOKIE_SECURE = True and SESSION_COOKIE_SECURE = True are recommended (present in current settings)
+
+Deployment / diagnostic checklist
+1) Set environment variables in Railway:
+   - DJANGO_SECRET_KEY (required)
+   - FPL_DEEPSEEK_API_KEY (only if you need LLM augmentation)
+   - FPL_USE_LLM = 0 or 1 (if you want to enable LLM augmentation)
+   - FPL_THRESHOLD_FILE (optional)
+
+2) Run migrations and collectstatic on Railway build step or via a release command:
+   - python manage.py migrate
+   - python manage.py collectstatic --noinput
+
+3) Confirm the upload form behavior in the browser DevTools (Network tab):
+   - Submit the form and verify the request method is POST
+   - Confirm Content-Type is multipart/form-data
+   - Confirm form-data contains a key 'flight_plan' with the file
+
+4) Check Railway logs after submitting the form. You should see prints similar to:
+   VIEW REACHED
+   POST DETECTED
+   FILES: { 'flight_plan': <InMemoryUploadedFile: ...> }
+
+   If those do NOT appear, the request is not hitting /api/upload/ (check form action, domain, and routing). If they DO appear but server returns "No file received", check that the key matches and file size is non-zero.
+
+5) Remember to remove or comment out diagnostic prints once you finish debugging.
+
+Quick git commands (run locally before pushing to Railway):
+  git add app/api/views.py app/api/urls.py templates/analyze.html
+  git commit -m "Add upload diagnostics and fix upload form for Railway deployment"
+  git push origin main
+
+Notes / rationale
+- Using a lightweight diagnostic view avoids disturbing production parse logic while helping confirm that multipart POSTs reach the Django process and that file fields are correctly named.
+- CSRF token is required when posting from rendered Django templates; if you submit from an external page or use fetch/XHR you may need to handle CSRF differently (e.g., use CSRF cookie and X-CSRFToken header).
+- WhiteNoise + collectstatic is required to serve static files on Railway; ensure static settings are correct.
+
+If you want, I can also:
+- produce a one-file patch/diff of the exact changes made today,
+- run through the DevTools checks step-by-step (if you provide request logs or screenshots), or
+- remove the diagnostic endpoints and prints once you confirm uploads work.
+
+End of railproject.txt
