@@ -3,110 +3,199 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>FPL Guru — Flightplan Safety Analyzer</title>
+    <title>FPL Guru — Preflight Threat Detection</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+      :root{--red:#dd2a3b;--muted:#6b7280}
       html,body{height:100%;margin:0;font-family:Poppins,system-ui,Arial,Helvetica,sans-serif;background:#f6f7fb;color:#111}
-      .wrap{max-width:1100px;margin:0 auto;padding:36px}
-      .hero{display:flex;gap:24px;align-items:center;padding:36px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.06)}
+      .container{max-width:1100px;margin:0 auto;padding:28px}
+      .hero{display:flex;gap:28px;align-items:center;padding:36px;background:#fff;border-radius:12px;box-shadow:0 8px 30px rgba(16,24,40,0.06)}
       .hero .left{flex:1}
-      h1{margin:0 0 8px;font-size:32px}
-      p.lead{margin:0 0 18px;color:#4b5563}
-      .controls{display:flex;gap:12px;align-items:center}
+      h1{margin:0 0 8px;font-size:32px;font-weight:700}
+      p.lead{margin:0 0 18px;color:#374151;font-size:16px}
+      .cta-row{display:flex;gap:12px;align-items:center}
       .btn{display:inline-block;padding:12px 18px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
-      .btn.primary{background:#dd2a3b;color:#fff}
-      .btn.secondary{background:#eef2f7;color:#111}
+      .btn.primary{background:var(--red);color:#fff}
+      .btn.ghost{background:#fff;border:1px solid #e6e9ee;color:#111}
       input[type=file]{display:none}
-      label.file-btn{display:inline-block;padding:10px 16px;border-radius:10px;background:#fff;border:1px solid #e6e9ee;cursor:pointer}
-      .muted{font-size:13px;color:#6b7280;margin-top:12px}
-      .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:28px}
-      .feature{background:#fff;padding:18px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.04)}
-      .testimonials{margin-top:28px;display:flex;flex-direction:column;gap:12px}
-      .testimonial{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #dd2a3b}
-      .small{font-size:13px;color:#6b7280}
-      footer{margin-top:28px;text-align:center;color:#6b7280;font-size:13px}
-      /* hidden helpers for legacy JS */
-      #payload{display:none;width:100%;min-height:120px}
+      label.file-btn{display:inline-block;padding:10px 14px;border-radius:10px;background:#fff;border:1px solid #e6e9ee;cursor:pointer}
+      .section{margin-top:26px}
+      .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+      .card{background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.04)}
+      .how-steps{display:flex;gap:12px;align-items:center}
+      .step{background:#fff;padding:12px;border-radius:8px;flex:1;text-align:center}
+      .muted{color:var(--muted);font-size:14px}
+      .small{font-size:13px;color:var(--muted)}
+      footer{margin-top:28px;text-align:center;color:var(--muted);font-size:13px}
+      #payload{display:none}
       #rawText{display:none}
       #result{white-space:pre-wrap;margin-top:12px;font-family:monospace;font-size:13px;color:#111}
+      .trust-logos{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+      .highlight{color:var(--red);font-weight:700}
     </style>
   </head>
   <body>
-    <main class="wrap">
-      <section class="hero">
-        <div class="left">
-          <h1>FPL Guru</h1>
-          <p class="lead">Deterministic OFP parsing with conservative assistant augmentation. Extract auditable flightplan JSON, then run focused weather and NOTAM risk analyses per-airport and enroute.</p>
+    <main class="container">
 
-          <div class="controls">
+      <!-- HERO -->
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="left">
+          <h1 id="hero-heading">Preflight Intelligence for Pilots Who Don’t Guess</h1>
+          <p class="lead">FPL Guru analyzes your flight plan, NOTAMs, ETOPS, fuel, and weather — and flags operational threats before you push back.</p>
+
+          <div class="cta-row">
             <form id="pdfForm" method="POST" enctype="multipart/form-data" style="display:inline-block;margin:0">
               {% csrf_token %}
               <input id="pdfFile" name="file" type="file" accept="application/pdf" />
               <label for="pdfFile" class="file-btn">Choose PDF</label>
             </form>
 
-            <button id="analyzeBtn" class="btn primary" disabled>Analyze</button>
-            <button id="helpBtn" class="btn secondary" onclick="window.open('/docs/usage','_blank')">How it works</button>
-          </div>
-
-          <div style="margin-top:12px">
-            <!-- Telegram Login Widget: replace data-telegram-login with your bot username (without @) -->
-            <script async src="https://telegram.org/js/telegram-widget.js?7" data-telegram-login="YourBotUsername" data-size="small" data-userpic="false" data-auth-url="/api/telegram_auth/" data-request-access="write"></script>
+            <button id="analyzeBtn" class="btn primary" disabled>Analyze a Flight Plan</button>
+            <a class="btn ghost" href="/docs/usage" target="_blank">See How It Works</a>
           </div>
 
           <div id="result" class="small" aria-live="polite"></div>
-          <div class="muted">Tip: upload your OFP PDF. The app will parse it and open the Analysis page automatically. If redirects are blocked by extensions, use the 'Go to Analysis' button that appears.</div>
+
+          <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
+            <!-- Telegram widget + fallback signup -->
+            <div>
+              <script async src="https://telegram.org/js/telegram-widget.js?7" data-telegram-login="MentatElibot" data-size="small" data-userpic="false" data-auth-url="https://fplguru-production.up.railway.app/api/telegram_auth/" data-request-access="write"></script>
+            </div>
+            <div id="tgStatus" class="small">Sign in with Telegram to parse flight plans. Remaining quota: <span id="tgRemaining">-</span></div>
+            <button id="signInBtn" class="btn ghost" style="padding:8px 12px">Sign in / Sign up</button>
+          </div>
         </div>
 
-        <div class="right" style="width:320px">
+        <div class="right" style="width:340px">
           <div style="background:#fafafa;padding:18px;border-radius:10px">
-            <strong>Why FPL Guru?</strong>
-            <ul style="margin:8px 0 0 18px;color:#374151">
-              <li>Deterministic parsing — rule-based, auditable output</li>
-              <li>Per-airport NOTAM segmentation for operational clarity</li>
-              <li>Optional conservative LLM augmentation under operator control</li>
+            <strong>FPL Guru is not:</strong>
+            <ul class="small">
+              <li>a generic AI tool</li>
+              <li>a weather viewer</li>
+              <li>a NOTAM parser</li>
             </ul>
+            <div style="height:12px"></div>
+            <strong>It is:</strong>
+            <div class="highlight">A Preflight Threat Detection Engine for Airline Pilots</div>
           </div>
         </div>
       </section>
 
-      <section class="features">
-        <div class="feature">
-          <strong>Fast parsing</strong>
-          <p class="small">Extract the minimal flightplan JSON (ICAO-keyed weather, NOTAM buckets) in seconds.</p>
-        </div>
-        <div class="feature">
-          <strong>Focused analysis</strong>
-          <p class="small">Run per-section analyses for Departure/Destination/Alternates and Enroute segments.</p>
-        </div>
-        <div class="feature">
-          <strong>Auditable output</strong>
-          <p class="small">All assistant responses are returned raw so you can review the basis for recommendations.</p>
-        </div>
-        <div class="feature">
-          <strong>Safety-first</strong>
-          <p class="small">LLM may only fill missing values when enabled — never overwrite deterministic fields.</p>
+      <!-- THE PROBLEM -->
+      <section class="section" aria-labelledby="problem-heading">
+        <h2 id="problem-heading">The Data Is There. The Risk Is Hidden.</h2>
+        <p class="muted">Modern flight plans contain dense NOTAMs, cluttered weather briefs, ETOPS constraints, fuel assumptions, and weight-sensitive performance margins. Under time pressure, threat identification becomes pattern recognition. FPL Guru turns clutter into structured risk signals.</p>
+      </section>
+
+      <!-- WHAT IT DOES -->
+      <section class="section" aria-labelledby="what-heading">
+        <h2 id="what-heading">What FPL Guru Actually Does</h2>
+        <div class="grid-3">
+          <div class="card">
+            <strong>Weight & Performance</strong>
+            <p class="small">Flags: High gross weight exposure, low landing weight margins, fuel edge cases.</p>
+          </div>
+          <div class="card">
+            <strong>Weather Risk</strong>
+            <p class="small">Analyzes ceiling, visibility, winds, thunderstorms, and enroute turbulence.</p>
+          </div>
+          <div class="card">
+            <strong>ETOPS Validation</strong>
+            <p class="small">Checks minima, alternate compliance, and diversion exposure.</p>
+          </div>
+          <div class="card">
+            <strong>NOTAM Intelligence</strong>
+            <p class="small">Identifies runway closures, shortening, operational restrictions, and route-level conflicts.</p>
+          </div>
+          <div class="card">
+            <strong>Structured Output</strong>
+            <p class="small">ICAO-keyed weather, per-airport NOTAM buckets, and auditable assistant text for every analysis.</p>
+          </div>
+          <div class="card">
+            <strong>Operator Control</strong>
+            <p class="small">LLM augmentation is optional and conservative — it may only fill missing values, never overwrite deterministic fields.</p>
+          </div>
         </div>
       </section>
 
-      <section class="testimonials">
-        <div class="testimonial">
-          “Saved our planning team time and gave clear, auditable NOTAM breakdowns.” — Ops Lead, Regional Carrier
-        </div>
-        <div class="testimonial">
-          “The per-airport weather panels highlighted a convective risk we’d otherwise have missed.” — Dispatch Manager
+      <!-- HOW IT WORKS -->
+      <section class="section" aria-labelledby="how-heading">
+        <h2 id="how-heading">How It Works</h2>
+        <div class="how-steps">
+          <div class="step">1️⃣ Upload your FPL PDF</div>
+          <div style="width:40px;text-align:center">→</div>
+          <div class="step">2️⃣ FPL Guru extracts structured operational data</div>
+          <div style="width:40px;text-align:center">→</div>
+          <div class="step">3️⃣ Threats are flagged and color-coded by severity</div>
         </div>
       </section>
 
-      <!-- Hidden payload and rawText used by legacy JS and to pass to the analysis results page -->
+      <!-- REAL THREAT EXAMPLES -->
+      <section class="section" aria-labelledby="examples-heading">
+        <h2 id="examples-heading">Real Threat Examples</h2>
+        <div class="grid-3">
+          <div class="card"><strong>Runway shortened (NOTAM)</strong><p class="small">Identifies operationally significant shortening that may invalidate planned landing weight or require fuel adjustments.</p></div>
+          <div class="card"><strong>Convective cluster enroute</strong><p class="small">Highlights thunderstorm clusters that create diversion risk and fuel/planning impacts.</p></div>
+          <div class="card"><strong>ETOPS alternate exposure</strong><p class="small">Surface alternates that fail minima or create extended diversion ranges.</p></div>
+        </div>
+      </section>
+
+      <!-- WHO IT'S FOR -->
+      <section class="section" aria-labelledby="who-heading">
+        <h2 id="who-heading">Who It’s For</h2>
+        <p class="muted">Airline pilots, dispatchers, and ops teams who need a concise, auditable preflight risk brief — fast.</p>
+      </section>
+
+      <!-- TRUST -->
+      <section class="section" aria-labelledby="trust-heading">
+        <h2 id="trust-heading">Trusted By</h2>
+        <div class="trust-logos">
+          <!-- Placeholder logos; replace with real partners -->
+          <div class="card" style="padding:8px">Logo A</div>
+          <div class="card" style="padding:8px">Logo B</div>
+          <div class="card" style="padding:8px">Logo C</div>
+        </div>
+      </section>
+
+      <!-- CTA FOOTER -->
+      <section class="section" style="text-align:center;margin-top:28px">
+        <div style="display:inline-block;text-align:left;max-width:640px">
+          <h3>Ready to flag operational threats before you push back?</h3>
+          <div style="display:flex;gap:12px;margin-top:12px;align-items:center">
+            <label for="pdfFile" class="file-btn">Choose PDF</label>
+            <button id="analyzeBtnFooter" class="btn primary">Analyze a Flight Plan</button>
+            <a class="btn ghost" href="/docs/usage" target="_blank">See How It Works</a>
+          </div>
+          <div class="small muted" style="margin-top:8px">Incognito mode recommended if extensions interfere with automatic redirect.</div>
+        </div>
+      </section>
+
+      <!-- Hidden payload used by JS -->
       <textarea id="payload">{ "flightplan": {}, "observations": [] }</textarea>
       <textarea id="rawText"></textarea>
 
       <footer>
         <div class="small">©2026 FPL Guru — For operational use only. Always cross-check official sources.</div>
       </footer>
+
+      <!-- Signup modal -->
+      <div id="signupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:2000">
+        <div style="background:#fff;padding:20px;border-radius:10px;max-width:520px;margin:40px;">
+          <h3 style="margin-top:0">Sign in with Telegram</h3>
+          <p>If the Telegram widget shows "username invalid" your deployment likely needs the bot username configured. Two ways to sign up:</p>
+          <ol>
+            <li>Click the Telegram widget (if it works) to sign in. If it shows an error, try option 2.</li>
+            <li>Open Telegram and message the bot directly: <a id="tgDeepLink" href="https://t.me/MentatElibot" target="_blank">t.me/MentatElibot</a>. Send /start, then return to this page and click the widget.</li>
+          </ol>
+          <p style="font-size:13px;color:#555">If you are the operator, set your bot username in the template or contact the system administrator to set TELEGRAM_BOT_TOKEN.</p>
+          <div style="text-align:right;margin-top:12px">
+            <button id="signupClose" class="btn ghost">Close</button>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <script src="/static/js/analyze.js"></script>

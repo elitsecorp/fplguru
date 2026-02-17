@@ -140,22 +140,51 @@ pdfForm.addEventListener('submit', async (e) => {
   }
 });
 
+// Fetch Telegram login status and update UI
+async function refreshTelegramStatus(){
+  try{
+    const res = await fetch('/api/telegram_status/', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('not ok');
+    const data = await res.json();
+    const statusEl = document.getElementById('tgStatus');
+    const remainingEl = document.getElementById('tgRemaining');
+    if (data.logged_in){
+      if (statusEl) statusEl.textContent = `Signed in as ${data.telegram_username || 'Telegram user'}. Remaining quota: ${data.remaining_quota}`;
+      if (remainingEl) remainingEl.textContent = String(data.remaining_quota);
+      // do not disable file input; only mark logged-in state
+      document.body.dataset.tgLoggedIn = '1';
+    } else {
+      if (statusEl) statusEl.textContent = 'Sign in with Telegram to parse flight plans. Remaining quota: -';
+      if (remainingEl) remainingEl.textContent = '-';
+      document.body.dataset.tgLoggedIn = '0';
+    }
+    // update analyze enabled state
+    try{ updateAnalyzeEnabled(); } catch(e){}
+  } catch (e){
+    console.warn('tg status fetch failed', e);
+  }
+}
+
+// call refresh on load
+refreshTelegramStatus();
+
+// modify updateAnalyzeEnabled to require telegram login
+function updateAnalyzeEnabled(){
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  if (!analyzeBtn) return;
+  try {
+    const isLoggedIn = document.body.dataset.tgLoggedIn === '1';
+    const hasStored = !!sessionStorage.getItem('fplguru_payload');
+    const fileInput = document.getElementById('pdfFile');
+    const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+    analyzeBtn.disabled = !(isLoggedIn && (hasStored || hasFile));
+  } catch (e) {
+    analyzeBtn.disabled = true;
+  }
+}
+
 // Enhance analyze button behavior: disable unless an uploaded/parsed FPL is available
 (function(){
-  function updateAnalyzeEnabled(){
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    if (!analyzeBtn) return;
-    try {
-      const hasStored = !!sessionStorage.getItem('fplguru_payload');
-      const fileInput = document.getElementById('pdfFile');
-      const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
-      analyzeBtn.disabled = !(hasStored || hasFile);
-    } catch (e) {
-      // be conservative on error
-      analyzeBtn.disabled = true;
-    }
-  }
-
   // initialize state on load
   updateAnalyzeEnabled();
 
@@ -163,15 +192,26 @@ pdfForm.addEventListener('submit', async (e) => {
   const fileInput = document.getElementById('pdfFile');
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
+      // always update analyze enabled state (login may have changed previously)
       updateAnalyzeEnabled();
       try {
+        const isLoggedIn = document.body.dataset.tgLoggedIn === '1';
         const form = document.getElementById('pdfForm');
-        if (fileInput.files && fileInput.files.length > 0 && form) {
-          // use requestSubmit when available (preserves form semantics), otherwise dispatch submit event
-          if (typeof form.requestSubmit === 'function') {
-            form.requestSubmit();
-          } else {
-            form.dispatchEvent(new Event('submit', { cancelable: true }));
+        if (fileInput.files && fileInput.files.length > 0) {
+          if (!isLoggedIn) {
+            const resEl = document.getElementById('result');
+            if (resEl) resEl.textContent = 'Please sign in with Telegram (use the widget below) before parsing. Click the Telegram login button to sign in.';
+            // ensure analyze remains disabled
+            try { const analyzeBtn = document.getElementById('analyzeBtn'); if (analyzeBtn) analyzeBtn.disabled = true; } catch(e){}
+            return;
+          }
+          if (form) {
+            // use requestSubmit when available (preserves form semantics), otherwise dispatch submit event
+            if (typeof form.requestSubmit === 'function') {
+              form.requestSubmit();
+            } else {
+              form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
           }
         }
       } catch (ex) {
@@ -203,4 +243,28 @@ pdfForm.addEventListener('submit', async (e) => {
       }
     });
   }
+})();
+
+// signup modal wiring
+(function(){
+  const signInBtn = document.getElementById('signInBtn');
+  const modal = document.getElementById('signupModal');
+  const closeBtn = document.getElementById('signupClose');
+  const deep = document.getElementById('tgDeepLink');
+  if (signInBtn && modal){
+    signInBtn.addEventListener('click', () => { modal.style.display = 'flex'; });
+    if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+    if (deep) deep.addEventListener('click', () => { /* opens external link */ });
+  }
+
+  // If the Telegram widget fails with a username invalid error, provide clearer instructions in the modal
+  window.addEventListener('message', (ev) => {
+    try {
+      if (!ev.data) return;
+      if (typeof ev.data !== 'string') return;
+      if (ev.data.indexOf('username invalid') !== -1) {
+        if (modal) modal.style.display = 'flex';
+      }
+    } catch (e) {}
+  });
 })();

@@ -70,6 +70,10 @@ def parse_pdf(request):
     except Exception:
         tg_user = None
 
+    # Enforce login for parsing: require Telegram authentication
+    if not tg_user:
+        return HttpResponse(json.dumps({'error': 'login_required', 'message': 'Sign in with Telegram to parse flight plans.'}), content_type='application/json', status=401)
+
     if tg_user:
         today = timezone.now().date()
         count_today = FPLUpload.objects.filter(user=tg_user, created_at__date=today).count()
@@ -276,3 +280,21 @@ def telegram_auth(request):
     request.session['telegram_user_id'] = user.id
     # redirect back to analyze landing
     return HttpResponse("<html><body><script>window.location.href = '/analyze/';</script></body></html>")
+
+
+@csrf_exempt
+def telegram_status(request):
+    """Return whether the session is associated with a Telegram user and remaining quota for today."""
+    try:
+        tg_user_id = request.session.get('telegram_user_id')
+        if not tg_user_id:
+            return JsonResponse({'logged_in': False})
+        user = TelegramUser.objects.filter(id=tg_user_id).first()
+        if not user:
+            return JsonResponse({'logged_in': False})
+        today = timezone.now().date()
+        count_today = FPLUpload.objects.filter(user=user, created_at__date=today).count()
+        remaining = max(0, 2 - count_today)
+        return JsonResponse({'logged_in': True, 'remaining_quota': remaining, 'count_today': count_today, 'telegram_username': user.username})
+    except Exception:
+        return JsonResponse({'logged_in': False})
