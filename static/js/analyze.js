@@ -1,21 +1,4 @@
-document.getElementById('analyzeBtn').addEventListener('click', async () => {
-  const payloadText = document.getElementById('payload').value;
-  let json;
-  try {
-    json = JSON.parse(payloadText);
-  } catch (e) {
-    document.getElementById('result').textContent = 'Invalid JSON: ' + e.message;
-    return;
-  }
-  // Store payload for the analysis results page and navigate there
-  try {
-    sessionStorage.setItem('fplguru_payload', JSON.stringify(json));
-    // go to analysis results page
-    window.location.href = '/analyze/result/';
-  } catch (err) {
-    document.getElementById('result').textContent = 'Failed to navigate to analysis page: ' + err.message;
-  }
-});
+// analyze.js - centralized handlers (legacy top-level analyze handler removed)
 
 // PDF parse flow
 const pdfForm = document.getElementById('pdfForm');
@@ -23,7 +6,8 @@ pdfForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const fileInput = document.getElementById('pdfFile');
   if (!fileInput.files || fileInput.files.length === 0) {
-    document.getElementById('result').textContent = 'No PDF selected';
+    const resEl = document.getElementById('result');
+    if (resEl) resEl.textContent = 'No PDF selected';
     return;
   }
   const file = fileInput.files[0];
@@ -31,7 +15,8 @@ pdfForm.addEventListener('submit', async (e) => {
   // Use the canonical 'file' field name expected by /api/parse_pdf/
   const fileFieldName = 'file';
   formData.append(fileFieldName, file);
-  document.getElementById('result').textContent = 'Parsing PDF...';
+  const resElMain = document.getElementById('result');
+  if (resElMain) resElMain.textContent = 'Parsing PDF...';
   try {
     // Force the JSON-producing parser endpoint for production/debugging
     const endpoint = '/api/parse_pdf/';
@@ -49,7 +34,7 @@ pdfForm.addEventListener('submit', async (e) => {
     } else {
       const text = await res.text();
       // Surface the server response for debugging and abort further JSON-processing
-      document.getElementById('result').textContent = 'Server returned non-JSON response: ' + text;
+      if (resElMain) resElMain.textContent = 'Server returned non-JSON response: ' + text;
       return;
     }
     // Normalize parse response: support both legacy shape { flightplan: {...} } and
@@ -64,12 +49,14 @@ pdfForm.addEventListener('submit', async (e) => {
       }
     }
     if (flightplanObj) {
-      document.getElementById('payload').value = JSON.stringify({flightplan: flightplanObj, observations: []}, null, 2);
+      const payloadEl = document.getElementById('payload');
+      if (payloadEl) payloadEl.value = JSON.stringify({flightplan: flightplanObj, observations: []}, null, 2);
     }
     // Populate raw extracted text area (prefer full raw_text, fallback to snippet)
     if (data) {
       const raw = data.raw_text || data.raw_text_snippet || data.extracted_text || data.raw_llm_response_text || null;
-      document.getElementById('rawText').value = raw || '';
+      const rawEl = document.getElementById('rawText');
+      if (rawEl) rawEl.value = raw || '';
       // Also store parsed payload so operator can click Analyze immediately
       try {
         // Prepare payload wrapper
@@ -79,6 +66,11 @@ pdfForm.addEventListener('submit', async (e) => {
         // Directly set sessionStorage and navigate to analysis page (reliable and avoids form submission issues)
         try {
           sessionStorage.setItem('fplguru_payload', JSON.stringify(wrapper));
+          // Ensure Analyze button is enabled (useful when redirect is blocked)
+          try {
+            const analyzeBtnEl = document.getElementById('analyzeBtn');
+            if (analyzeBtnEl) analyzeBtnEl.disabled = false;
+          } catch (e) { /* ignore */ }
           // Visible confirmation on page for operators (not relying on console)
           try {
             const resultEl = document.getElementById('result');
@@ -142,9 +134,9 @@ pdfForm.addEventListener('submit', async (e) => {
         }
       } catch (e) {}
     }
-    document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+    if (resElMain) resElMain.textContent = JSON.stringify(data, null, 2);
   } catch (err) {
-    document.getElementById('result').textContent = 'Error parsing PDF: ' + err.message;
+    if (resElMain) resElMain.textContent = 'Error parsing PDF: ' + err.message;
   }
 });
 

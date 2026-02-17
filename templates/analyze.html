@@ -51,6 +51,11 @@
             <button id="helpBtn" class="btn secondary" onclick="window.open('/docs/usage','_blank')">How it works</button>
           </div>
 
+          <div style="margin-top:12px">
+            <!-- Telegram Login Widget: replace data-telegram-login with your bot username (without @) -->
+            <script async src="https://telegram.org/js/telegram-widget.js?7" data-telegram-login="YourBotUsername" data-size="small" data-userpic="false" data-auth-url="/api/telegram_auth/" data-request-access="write"></script>
+          </div>
+
           <div id="result" class="small" aria-live="polite"></div>
           <div class="muted">Tip: upload your OFP PDF. The app will parse it and open the Analysis page automatically. If redirects are blocked by extensions, use the 'Go to Analysis' button that appears.</div>
         </div>

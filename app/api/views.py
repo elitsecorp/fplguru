@@ -207,4 +207,72 @@ def upload_view(request):
 def submit_analysis(request):
     """Accepts form POST with field 'payload' (JSON string). Returns an HTML page that sets sessionStorage['fplguru_payload'] and redirects to the analysis page.
 
-    This avoids server-side session handling while ensuring the analysis page receives the full JSON payload im
+    This avoids server-side session handling while ensuring the analysis page receives the full JSON payload immediately after redirect.
+    """
+    if request.method != 'POST':
+        return HttpResponseBadRequest('POST required')
+    payload = request.POST.get('payload')
+    if not payload:
+        return HttpResponseBadRequest('missing payload')
+
+    # Safely escape the payload for embedding in a JS string literal
+    try:
+        safe_js_payload = json.dumps(payload)
+    except Exception:
+        safe_js_payload = '"{}"'.format(str(payload).replace('"', '\\"'))
+
+    html = f"""
+    <!doctype html>
+    <html><head><meta charset='utf-8'><title>Redirecting...</title></head>
+    <body>
+    <script>
+      try {{ sessionStorage.setItem('fplguru_payload', {safe_js_payload}); }} catch(e) {{ console.error('session storage set failed', e); }}
+      window.location.replace('/analyze/result/');
+    </script>
+    </body></html>
+    """
+    return HttpResponse(html)
+
+
+@csrf_exempt
+def telegram_auth(request):
+    """Handle Telegram Login Widget callback (GET). Verifies the Telegram hash and records the TelegramUser in DB, storing id in session."""
+    params = request.GET.dict()
+    hash_val = params.get('hash')
+    if not hash_val:
+        return HttpResponseBadRequest(json.dumps({'error': 'missing hash'}), content_type='application/json')
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+    if not bot_token:
+        return HttpResponseBadRequest(json.dumps({'error': 'server misconfigured'}), content_type='application/json')
+    # verify per Telegram docs
+    data_check_arr = []
+    for k in sorted([k for k in params.keys() if k != 'hash']):
+        data_check_arr.append(f"{k}={params[k]}")
+    data_check_string = "\n".join(data_check_arr)
+    secret_key = hashlib.sha256(bot_token.encode()).digest()
+    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(computed_hash, hash_val):
+        return HttpResponseBadRequest(json.dumps({'error': 'telegram auth failed'}), content_type='application/json')
+    # freshness
+    try:
+        auth_date = int(params.get('auth_date', '0'))
+        if abs(time.time() - auth_date) > 60 * 60 * 24:
+            return HttpResponseBadRequest(json.dumps({'error': 'stale auth'}), content_type='application/json')
+    except Exception:
+        pass
+    # record or update user
+    tg_id = int(params.get('id'))
+    user, _ = TelegramUser.objects.get_or_create(telegram_id=tg_id, defaults={
+        'username': params.get('username'),
+        'first_name': params.get('first_name'),
+        'last_name': params.get('last_name'),
+    })
+    changed = False
+    for f in ('username', 'first_name', 'last_name'):
+        if params.get(f) and getattr(user, f) != params.get(f):
+            setattr(user, f, params.get(f)); changed = True
+    if changed:
+        user.save()
+    request.session['telegram_user_id'] = user.id
+    # redirect back to analyze landing
+    return HttpResponse("<html><body><script>window.location.href = '/analyze/';</script></body></html>")

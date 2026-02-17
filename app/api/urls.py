@@ -8,4 +8,5 @@ urlpatterns = [
     path('parse_llm/', views.parse_with_llm, name='api_parse_llm'),
     path('upload/', views.upload_view, name='api_upload_view'),
     path('submit_analysis/', views.submit_analysis, name='api_submit_analysis'),
+    path('telegram_auth/', views.telegram_auth, name='api_telegram_auth'),
 ]
