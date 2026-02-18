@@ -4,9 +4,6 @@ from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from services import analyzer, pdf_parser
 from django.conf import settings
-from .models import TelegramUser, FPLUpload
-import hashlib, hmac, time
-from django.utils import timezone
 
 # Load thresholds once (deterministic)
 THRESHOLDS = analyzer.load_thresholds(getattr(settings, 'THRESHOLDS_FILE', None))
@@ -61,37 +58,10 @@ def parse_pdf(request):
     if not file_bytes:
         return HttpResponseBadRequest(json.dumps({'error': 'no file provided'}), content_type='application/json')
 
-    # authenticate Telegram user from session (optional enforcement)
-    tg_user = None
-    try:
-        tg_user_id = request.session.get('telegram_user_id')
-        if tg_user_id:
-            tg_user = TelegramUser.objects.filter(id=tg_user_id).first()
-    except Exception:
-        tg_user = None
-
-    # Enforce login for parsing: require Telegram authentication
-    if not tg_user:
-        return HttpResponse(json.dumps({'error': 'login_required', 'message': 'Sign in with Telegram to parse flight plans.'}), content_type='application/json', status=401)
-
-    if tg_user:
-        today = timezone.now().date()
-        count_today = FPLUpload.objects.filter(user=tg_user, created_at__date=today).count()
-        if count_today >= 2:
-            return HttpResponseBadRequest(json.dumps({'error': 'quota_exceeded', 'message': 'Daily limit (2) reached'}), content_type='application/json')
-
     try:
         parsed = pdf_parser.parse_pdf_file(file_bytes)
     except Exception as e:
         return HttpResponseBadRequest(json.dumps({'error': 'failed to parse pdf', 'detail': str(e)}), content_type='application/json')
-
-    # persist upload record when user present
-    try:
-        if tg_user:
-            flight_number = parsed.get('flight_number') if isinstance(parsed, dict) else None
-            FPLUpload.objects.create(user=tg_user, flight_number=flight_number, payload=parsed)
-    except Exception:
-        pass
 
     # DEBUG: print parsed flightplan (truncated) to server logs for diagnosis
     try:
@@ -236,65 +206,3 @@ def submit_analysis(request):
     </body></html>
     """
     return HttpResponse(html)
-
-
-@csrf_exempt
-def telegram_auth(request):
-    """Handle Telegram Login Widget callback (GET). Verifies the Telegram hash and records the TelegramUser in DB, storing id in session."""
-    params = request.GET.dict()
-    hash_val = params.get('hash')
-    if not hash_val:
-        return HttpResponseBadRequest(json.dumps({'error': 'missing hash'}), content_type='application/json')
-    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
-    if not bot_token:
-        return HttpResponseBadRequest(json.dumps({'error': 'server misconfigured'}), content_type='application/json')
-    # verify per Telegram docs
-    data_check_arr = []
-    for k in sorted([k for k in params.keys() if k != 'hash']):
-        data_check_arr.append(f"{k}={params[k]}")
-    data_check_string = "\n".join(data_check_arr)
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
-    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(computed_hash, hash_val):
-        return HttpResponseBadRequest(json.dumps({'error': 'telegram auth failed'}), content_type='application/json')
-    # freshness
-    try:
-        auth_date = int(params.get('auth_date', '0'))
-        if abs(time.time() - auth_date) > 60 * 60 * 24:
-            return HttpResponseBadRequest(json.dumps({'error': 'stale auth'}), content_type='application/json')
-    except Exception:
-        pass
-    # record or update user
-    tg_id = int(params.get('id'))
-    user, _ = TelegramUser.objects.get_or_create(telegram_id=tg_id, defaults={
-        'username': params.get('username'),
-        'first_name': params.get('first_name'),
-        'last_name': params.get('last_name'),
-    })
-    changed = False
-    for f in ('username', 'first_name', 'last_name'):
-        if params.get(f) and getattr(user, f) != params.get(f):
-            setattr(user, f, params.get(f)); changed = True
-    if changed:
-        user.save()
-    request.session['telegram_user_id'] = user.id
-    # redirect back to analyze landing
-    return HttpResponse("<html><body><script>window.location.href = '/analyze/';</script></body></html>")
-
-
-@csrf_exempt
-def telegram_status(request):
-    """Return whether the session is associated with a Telegram user and remaining quota for today."""
-    try:
-        tg_user_id = request.session.get('telegram_user_id')
-        if not tg_user_id:
-            return JsonResponse({'logged_in': False})
-        user = TelegramUser.objects.filter(id=tg_user_id).first()
-        if not user:
-            return JsonResponse({'logged_in': False})
-        today = timezone.now().date()
-        count_today = FPLUpload.objects.filter(user=user, created_at__date=today).count()
-        remaining = max(0, 2 - count_today)
-        return JsonResponse({'logged_in': True, 'remaining_quota': remaining, 'count_today': count_today, 'telegram_username': user.username})
-    except Exception:
-        return JsonResponse({'logged_in': False})

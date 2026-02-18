@@ -59,12 +59,7 @@
           <div id="result" class="small" aria-live="polite"></div>
 
           <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
-            <!-- Telegram widget + fallback signup -->
-            <div>
-              <script async src="https://telegram.org/js/telegram-widget.js?7" data-telegram-login="MentatElibot" data-size="small" data-userpic="false" data-auth-url="https://fplguru-production.up.railway.app/api/telegram_auth/" data-request-access="write"></script>
-            </div>
-            <div id="tgStatus" class="small">Sign in with Telegram to parse flight plans. Remaining quota: <span id="tgRemaining">-</span></div>
-            <button id="signInBtn" class="btn ghost" style="padding:8px 12px">Sign in / Sign up</button>
+            <div class="small">No sign-in required. Upload a flight plan PDF to analyze.</div>
           </div>
         </div>
 
@@ -180,24 +175,8 @@
         <div class="small">©2026 FPL Guru — For operational use only. Always cross-check official sources.</div>
       </footer>
 
-      <!-- Signup modal -->
-      <div id="signupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:2000">
-        <div style="background:#fff;padding:20px;border-radius:10px;max-width:520px;margin:40px;">
-          <h3 style="margin-top:0">Sign in with Telegram</h3>
-          <p>If the Telegram widget shows "username invalid" your deployment likely needs the bot username configured. Two ways to sign up:</p>
-          <ol>
-            <li>Click the Telegram widget (if it works) to sign in. If it shows an error, try option 2.</li>
-            <li>Open Telegram and message the bot directly: <a id="tgDeepLink" href="https://t.me/MentatElibot" target="_blank">t.me/MentatElibot</a>. Send /start, then return to this page and click the widget.</li>
-          </ol>
-          <p style="font-size:13px;color:#555">If you are the operator, set your bot username in the template or contact the system administrator to set TELEGRAM_BOT_TOKEN.</p>
-          <div style="text-align:right;margin-top:12px">
-            <button id="signupClose" class="btn ghost">Close</button>
-          </div>
-        </div>
-      </div>
-
     </main>
 
-    <script src="/static/js/analyze.js"></script>
+    <script src="/static/js/analyze.js?v=2"></script>
   </body>
 </html>
