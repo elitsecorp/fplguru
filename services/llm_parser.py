@@ -51,7 +51,7 @@ def extract_flightplan_from_text(text: str, schema: Dict[str, Any] = None, timeo
             'extracted_text': None,
             'llm_error': str(e),
         }
-
+###
     # Build chat-style payload compatible with Deepseek chat completions
     system_prompt = (
         'You are a deterministic extractor. Extract ONLY a JSON object matching the schema described by the user. '
